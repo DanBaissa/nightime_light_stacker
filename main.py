@@ -13,8 +13,12 @@ root.withdraw()  # Hide the root window
 # Open the file dialog in 'directory' mode
 folder_path = filedialog.askdirectory()
 
+
 # Ask for sigma value
 sigma_value = simpledialog.askfloat("Input", "Enter the sigma value")
+
+# Ask for threshold value
+threshold_value = simpledialog.askfloat("Input", "Enter the threshold value (set numbers above this value to NA)")
 
 # Specify the output filenames
 output_filename_mean = 'output_mean.tif'
@@ -29,21 +33,27 @@ data_arrays = []
 for file in file_list:
     # Open each GeoTIFF file
     with rasterio.open(file) as src:
-        # Read the data into a numpy array and add it to the list
-        data_arrays.append(src.read())
+        # Read the data into a numpy array and convert it to float32
+        data = src.read().astype('float32')
+
+        # Set values above the threshold to NaN
+        data[data > threshold_value] = np.nan
+
+        # Add the processed data to the list
+        data_arrays.append(data)
 
 # Stack the arrays along a new dimension (axis 0)
 stacked_arrays = np.stack(data_arrays, axis=0)
 
-# Calculate the mean along axis 0
-mean_array = np.mean(stacked_arrays, axis=0)
+# Calculate the mean along axis 0 while ignoring NaN values
+mean_array = np.nanmean(stacked_arrays, axis=0)
 
 # Perform sigma clipping
 sigma_clip = SigmaClip(sigma=sigma_value)
 clipped_arrays = sigma_clip(stacked_arrays, axis=0)
 
-# Calculate the mean along axis 0 of the clipped arrays
-mean_array_clipped = np.mean(clipped_arrays, axis=0)
+# Calculate the mean along axis 0 of the clipped arrays, ignoring NaN values
+mean_array_clipped = np.nanmean(clipped_arrays, axis=0)
 
 # Get the metadata from the first GeoTIFF file
 with rasterio.open(file_list[0]) as src:
